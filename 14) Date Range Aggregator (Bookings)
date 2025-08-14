@@ -1,0 +1,111 @@
+using System;
+using System.Collections.Generic;
+
+class Booking
+{
+    public DateTime Start { get; }
+    public DateTime End { get; }
+
+    public Booking(DateTime start, DateTime end)
+    {
+        if (end < start)
+            throw new ArgumentException("End date cannot be earlier than start date.");
+
+        Start = start;
+        End = end;
+    }
+
+    // Adds counts for each day in range to the provided array
+    public void AddDailyCounts(int[] dailyCounts)
+    {
+        for (var date = Start; date <= End; date = date.AddDays(1))
+        {
+            int dayIndex = date.Day - 1; // 0-based index
+            dailyCounts[dayIndex]++;
+        }
+    }
+}
+
+class Program
+{
+    static void Main()
+    {
+        Console.WriteLine("Enter bookings (start end) in yyyy-MM-dd format, empty line to finish:");
+        var bookings = new List<Booking>();
+
+        while (true)
+        {
+            string line = Console.ReadLine();
+            if (string.IsNullOrWhiteSpace(line))
+                break;
+
+            var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length != 2)
+            {
+                Console.WriteLine("Invalid format. Use: yyyy-MM-dd yyyy-MM-dd");
+                continue;
+            }
+
+            if (!DateTime.TryParse(parts[0], out DateTime start) ||
+                !DateTime.TryParse(parts[1], out DateTime end))
+            {
+                Console.WriteLine("Invalid date(s).");
+                continue;
+            }
+
+            try
+            {
+                bookings.Add(new Booking(start, end));
+            }
+            catch (ArgumentException ex)
+            {
+                Console.WriteLine(ex.Message);
+            }
+        }
+
+        if (bookings.Count == 0)
+        {
+            Console.WriteLine("No bookings entered.");
+            return;
+        }
+
+        int daysInMonth = DateTime.DaysInMonth(bookings[0].Start.Year, bookings[0].Start.Month);
+        int[] dailyCounts = new int[daysInMonth];
+
+        // Count all bookings per day
+        foreach (var booking in bookings)
+            booking.AddDailyCounts(dailyCounts);
+
+        Console.WriteLine("\n--- Daily Booking Counts ---");
+        for (int day = 1; day <= daysInMonth; day++)
+            Console.WriteLine($"{day:00}: {dailyCounts[day - 1]}");
+
+        // Merge overlapping ranges for unique booking view
+        bookings.Sort((a, b) => a.Start.CompareTo(b.Start));
+        var merged = new List<(DateTime start, DateTime end)>();
+
+        DateTime currentStart = bookings[0].Start;
+        DateTime currentEnd = bookings[0].End;
+
+        for (int i = 1; i < bookings.Count; i++)
+        {
+            var b = bookings[i];
+            if (b.Start <= currentEnd.AddDays(1)) // overlap or touching
+            {
+                if (b.End > currentEnd)
+                    currentEnd = b.End;
+            }
+            else
+            {
+                merged.Add((currentStart, currentEnd));
+                currentStart = b.Start;
+                currentEnd = b.End;
+            }
+        }
+        merged.Add((currentStart, currentEnd));
+
+        Console.WriteLine("\n--- Merged Booking Ranges ---");
+        foreach (var m in merged)
+            Console.WriteLine($"{m.start:yyyy-MM-dd} to {m.end:yyyy-MM-dd}");
+    }
+}
