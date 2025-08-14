@@ -1,0 +1,100 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+class Movie
+{
+    public string Title { get; }
+    public string Rating { get; }
+    public int Duration { get; } // in minutes
+    public List<string> Tags { get; }
+    public double Score { get; } // rating score for tie-break
+
+    public Movie(string title, string rating, int duration, List<string> tags, double score)
+    {
+        Title = title;
+        Rating = rating.ToUpperInvariant();
+        Duration = duration;
+        Tags = tags.Select(t => t.ToLowerInvariant()).ToList();
+        Score = score;
+    }
+
+    public bool MatchesCriteria(int maxDuration, HashSet<string> allowedRatings, string mood)
+    {
+        return Duration <= maxDuration &&
+               allowedRatings.Contains(Rating) &&
+               Tags.Contains(mood.ToLowerInvariant());
+    }
+}
+
+class Program
+{
+    static readonly HashSet<string> AllowedRatingsSet = new HashSet<string>
+        { "G", "PG", "PG-13", "R" };
+
+    static void Main()
+    {
+        // Sample movie catalog
+        var catalog = new List<Movie>
+        {
+            new Movie("Finding Nemo", "G", 100, new List<string>{"family", "adventure"}, 8.5),
+            new Movie("Inception", "PG-13", 148, new List<string>{"thriller", "mind-bending"}, 9.0),
+            new Movie("The Dark Knight", "PG-13", 152, new List<string>{"action", "drama"}, 9.1),
+            new Movie("The Lion King", "G", 88, new List<string>{"family", "musical"}, 8.9),
+            new Movie("Up", "PG", 96, new List<string>{"family", "adventure"}, 8.3)
+        };
+
+        Console.Write("Enter max duration in minutes: ");
+        if (!int.TryParse(Console.ReadLine(), out int maxDuration) || maxDuration <= 0)
+        {
+            Console.WriteLine("Invalid duration.");
+            return;
+        }
+
+        Console.Write("Enter allowed ratings (comma-separated, e.g. G,PG,PG-13): ");
+        var ratingInputs = Console.ReadLine()
+            .Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(r => r.Trim().ToUpperInvariant())
+            .ToList();
+
+        var allowedRatings = new HashSet<string>();
+        foreach (var r in ratingInputs)
+        {
+            if (AllowedRatingsSet.Contains(r))
+                allowedRatings.Add(r);
+            else
+            {
+                Console.WriteLine($"Invalid rating: {r}");
+                return;
+            }
+        }
+
+        Console.Write("Enter desired mood tag: ");
+        string mood = Console.ReadLine().Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(mood))
+        {
+            Console.WriteLine("Invalid mood.");
+            return;
+        }
+
+        // Filtering
+        var recommendations = catalog
+            .Where(m => m.MatchesCriteria(maxDuration, allowedRatings, mood))
+            .OrderByDescending(m => m.Score)
+            .ToList();
+
+        // Output
+        if (recommendations.Count == 0)
+        {
+            Console.WriteLine("No movies match your criteria.");
+        }
+        else
+        {
+            Console.WriteLine("\nRecommended Movies:");
+            foreach (var m in recommendations)
+            {
+                Console.WriteLine($"{m.Title} ({m.Rating}) - {m.Duration} mins - Score: {m.Score}");
+            }
+        }
+    }
+}
