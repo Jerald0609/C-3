@@ -1,0 +1,96 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+class Attendance
+{
+    public string StudentName { get; }
+    public List<bool> Days { get; } // true = present, false = absent
+
+    public Attendance(string name, IEnumerable<string> rawDays)
+    {
+        StudentName = name;
+        Days = rawDays.Select(d =>
+        {
+            d = d.Trim().ToUpper();
+            if (d == "1" || d == "Y") return true;
+            if (d == "0" || d == "N") return false;
+            throw new ArgumentException($"Invalid attendance value '{d}' for {name}.");
+        }).ToList();
+
+        if (Days.Count != 30)
+            throw new ArgumentException($"Attendance record for {name} must have exactly 30 days.");
+    }
+
+    public int Streak()
+    {
+        int maxStreak = 0, current = 0;
+        foreach (var day in Days)
+        {
+            if (day)
+            {
+                current++;
+                if (current > maxStreak) maxStreak = current;
+            }
+            else
+            {
+                current = 0;
+            }
+        }
+        return maxStreak;
+    }
+
+    public double AbsenceRate()
+    {
+        int absents = Days.Count(d => !d);
+        return (double)absents / Days.Count;
+    }
+}
+
+class Program
+{
+    static void Main()
+    {
+        // Example input
+        var studentsData = new List<(string Name, string[] Days)>
+        {
+            ("Alice", new string[] { "Y","Y","N","Y","Y","Y","N","Y","Y","Y",
+                                     "Y","Y","Y","N","N","Y","Y","Y","Y","Y",
+                                     "Y","Y","Y","Y","Y","N","Y","Y","Y","Y" }),
+            ("Bob", new string[] { "N","N","N","Y","N","N","Y","N","N","N",
+                                   "Y","N","Y","N","N","N","N","N","N","N",
+                                   "N","Y","N","N","N","N","N","N","N","N" })
+        };
+
+        double absenceThreshold = 0.25; // >25% absent
+        int minStreak = 5;
+
+        var records = new List<Attendance>();
+        foreach (var (name, days) in studentsData)
+        {
+            try
+            {
+                records.Add(new Attendance(name, days));
+            }
+            catch (ArgumentException ex)
+            {
+                Console.WriteLine($"Error: {ex.Message}");
+            }
+        }
+
+        Console.WriteLine("Attendance Report:\n");
+
+        foreach (var rec in records)
+        {
+            var streak = rec.Streak();
+            var absenceRate = rec.AbsenceRate();
+
+            bool isDefaulter = absenceRate > absenceThreshold || streak < minStreak;
+
+            Console.WriteLine($"{rec.StudentName} - " +
+                              $"Max Streak: {streak}, " +
+                              $"Absence Rate: {absenceRate:P1}, " +
+                              $"Flagged: {(isDefaulter ? "YES" : "NO")}");
+        }
+    }
+}
