@@ -1,0 +1,65 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+class UserFitness
+{
+    public string Name;
+    public int[] Steps, Calories;
+    public int StepGoal, CalGoal;
+
+    public UserFitness(string name, int[] steps, int[] cals, int sg, int cg)
+    { Name = name; Steps = steps; Calories = cals; StepGoal = sg; CalGoal = cg; }
+
+    public double AverageSteps() => Steps.Average();
+    public double AverageCalories() => Calories.Average();
+    public int BestDay() => Steps.ToList().IndexOf(Steps.Max()) + 1; // 1-based
+    public bool OnTrack() => Enumerable.Range(0, 7)
+                                       .Count(i => Steps[i] >= StepGoal && Calories[i] >= CalGoal) >= 5;
+}
+
+class Program
+{
+    static int[] GetWeekData(string label)
+    {
+        var arr = new int[7];
+        for (int i = 0; i < 7; i++)
+        {
+            while (true)
+            {
+                Console.Write($"{label} Day {i + 1}: ");
+                if (int.TryParse(Console.ReadLine(), out int val) && val >= 0) { arr[i] = val; break; }
+                Console.WriteLine("Invalid! Must be >= 0.");
+            }
+        }
+        return arr;
+    }
+
+    static void Main()
+    {
+        Console.Write("Number of users: ");
+        int n = int.Parse(Console.ReadLine());
+        var users = new List<UserFitness>();
+
+        for (int i = 0; i < n; i++)
+        {
+            Console.Write($"\nUser {i + 1} name: "); string name = Console.ReadLine();
+            var steps = GetWeekData("Steps");
+            var cals = GetWeekData("Calories");
+            Console.Write("Step goal: "); int sg = int.Parse(Console.ReadLine());
+            Console.Write("Calorie goal: "); int cg = int.Parse(Console.ReadLine());
+            users.Add(new UserFitness(name, steps, cals, sg, cg));
+        }
+
+        Console.Write("\nLookup name: ");
+        string search = Console.ReadLine();
+        var u = users.FirstOrDefault(x => x.Name.Equals(search, StringComparison.OrdinalIgnoreCase));
+        if (u != null)
+        {
+            Console.WriteLine($"Avg Steps: {u.AverageSteps():F1} | Avg Cals: {u.AverageCalories():F1}");
+            Console.WriteLine($"Best Day (steps): Day {u.BestDay()}");
+            Console.WriteLine(u.OnTrack() ? "On Track " : "Not On Track ");
+        }
+        else Console.WriteLine("User not found.");
+    }
+}
