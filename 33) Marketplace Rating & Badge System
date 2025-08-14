@@ -1,0 +1,91 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+class Seller
+{
+    public string Name { get; }
+    public List<double> Ratings { get; }
+    public List<int> Sales { get; }
+    public List<int> Cancellations { get; }
+
+    public double AvgRating => Ratings.Count > 0 ? Ratings.Average() : 0;
+    public int TotalSales => Sales.Sum();
+    public int TotalCancellations => Cancellations.Sum();
+    public double CancellationRate => TotalSales > 0 ? (double)TotalCancellations / TotalSales : 0;
+
+    public string SalesTier
+    {
+        get
+        {
+            if (TotalSales >= 100) return "Platinum";
+            if (TotalSales >= 50) return "Gold";
+            if (TotalSales >= 20) return "Silver";
+            return "Bronze";
+        }
+    }
+
+    public string Badge
+    {
+        get
+        {
+            // Example rule matrix:
+            // High rating, low cancellations, high sales = top badge
+            switch (SalesTier)
+            {
+                case "Platinum":
+                    if (AvgRating >= 4.8 && CancellationRate <= 0.02) return "Elite";
+                    if (AvgRating >= 4.5 && CancellationRate <= 0.05) return "Premium";
+                    return "Standard";
+                case "Gold":
+                    if (AvgRating >= 4.5 && CancellationRate <= 0.05) return "Premium";
+                    return "Standard";
+                case "Silver":
+                    if (AvgRating >= 4.0 && CancellationRate <= 0.10) return "Standard";
+                    return "Basic";
+                default:
+                    return "Basic";
+            }
+        }
+    }
+
+    public Seller(string name, List<double> ratings, List<int> sales, List<int> cancellations)
+    {
+        Name = name;
+        Ratings = ratings;
+        Sales = sales;
+        Cancellations = cancellations;
+    }
+}
+
+class Program
+{
+    static void Main()
+    {
+        var sellers = new List<Seller>
+        {
+            new Seller("Alice", new List<double>{5, 4.9, 4.8}, new List<int>{30, 40, 35}, new List<int>{1, 0, 1}),
+            new Seller("Bob", new List<double>{4.7, 4.6, 4.5}, new List<int>{50, 60, 55}, new List<int>{2, 3, 2}),
+            new Seller("Charlie", new List<double>{4.2, 4.0, 4.3}, new List<int>{15, 12, 10}, new List<int>{1, 2, 1}),
+            new Seller("Diana", new List<double>{4.9, 5, 4.95}, new List<int>{120, 130, 110}, new List<int>{1, 1, 0}),
+        };
+
+        // Leaderboard sorted by priority metric: badge tier → average rating
+        var badgePriority = new Dictionary<string, int>
+        {
+            {"Elite", 1}, {"Premium", 2}, {"Standard", 3}, {"Basic", 4}
+        };
+
+        var leaderboard = sellers
+            .OrderBy(s => badgePriority[s.Badge])
+            .ThenByDescending(s => s.AvgRating)
+            .ToList();
+
+        Console.WriteLine("Leaderboard:");
+        Console.WriteLine("Name\tBadge\tAvgRating\tSales\tCancels\tCancelRate");
+        foreach (var s in leaderboard)
+        {
+            Console.WriteLine($"{s.Name}\t{s.Badge}\t{s.AvgRating:F2}\t{s.TotalSales}\t{s.TotalCancellations}\t{s.CancellationRate:P1}");
+        }
+    }
+}
