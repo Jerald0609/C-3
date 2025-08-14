@@ -1,0 +1,68 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+class Employee
+{
+    public string Name;
+    public double Rate;
+    public double[] Hours; // 7 days
+
+    public Employee(string name, double rate, double[] hours)
+    { Name = name; Rate = rate; Hours = hours; }
+
+    public double GrossPay()
+    {
+        double totalHrs = Hours.Sum();
+        double regular = Math.Min(totalHrs, 40) * Rate;
+        double overtime = Math.Max(0, totalHrs - 40) * Rate * 1.5;
+
+        double dailyExtra = Hours.Sum(h => Math.Max(0, h - 8) * Rate * 0.25); // premium for >8h/day
+        return regular + overtime + dailyExtra;
+    }
+
+    public double NetPay()
+    {
+        double g = GrossPay(), tax = 0;
+        if (g <= 500) tax = g * 0.10;
+        else if (g <= 1000) tax = 500 * 0.10 + (g - 500) * 0.15;
+        else tax = 500 * 0.10 + 500 * 0.15 + (g - 1000) * 0.20;
+        return g - tax;
+    }
+}
+
+class Program
+{
+    static double GetPosDouble(string msg)
+    {
+        double v;
+        while (true)
+        {
+            Console.Write(msg);
+            if (double.TryParse(Console.ReadLine(), out v) && v >= 0) return v;
+            Console.WriteLine("Invalid! Must be >= 0.");
+        }
+    }
+
+    static void Main()
+    {
+        Console.Write("Number of employees: ");
+        int n = int.Parse(Console.ReadLine());
+        var emps = new List<Employee>();
+
+        for (int i = 0; i < n; i++)
+        {
+            Console.WriteLine($"\nEmployee {i + 1}");
+            Console.Write("Name: "); string name = Console.ReadLine();
+            double rate = GetPosDouble("Hourly rate: ");
+            double[] hrs = new double[7];
+            for (int d = 0; d < 7; d++) hrs[d] = GetPosDouble($"Hours Day {d + 1}: ");
+            emps.Add(new Employee(name, rate, hrs));
+        }
+
+        var sorted = emps.OrderByDescending(e => e.NetPay());
+        Console.WriteLine("\n=== PAY SLIPS ===");
+        foreach (var e in sorted)
+            Console.WriteLine($"{e.Name} | Gross: {e.GrossPay():F2} | Net: {e.NetPay():F2}");
+    }
+}
