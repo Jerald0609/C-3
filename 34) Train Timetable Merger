@@ -1,0 +1,97 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+class Service
+{
+    public string Line { get; }
+    public TimeSpan Arrival { get; }
+    public TimeSpan Departure { get; }
+    public int Platform { get; set; } = -1;
+
+    public Service(string line, TimeSpan arrival, TimeSpan departure)
+    {
+        Line = line;
+        Arrival = arrival;
+        Departure = departure;
+    }
+
+    public override string ToString() =>
+        $"{Line}: Arr {Arrival:hh\\:mm}, Dep {Departure:hh\\:mm}, Platform {Platform}";
+}
+
+class ScheduleMerger
+{
+    private readonly int _platformCount;
+    private readonly TimeSpan _turnaround;
+
+    public ScheduleMerger(int platformCount, TimeSpan turnaround)
+    {
+        _platformCount = platformCount;
+        _turnaround = turnaround;
+    }
+
+    public List<Service> MergeAndAssign(List<Service> listA, List<Service> listB)
+    {
+        // Merge sorted by arrival time
+        var merged = listA.Concat(listB)
+                          .OrderBy(s => s.Arrival)
+                          .ThenBy(s => s.Line)
+                          .ToList();
+
+        var platformEndTimes = new TimeSpan[_platformCount]; // track last departure time
+
+        foreach (var service in merged)
+        {
+            bool assigned = false;
+
+            for (int p = 0; p < _platformCount; p++)
+            {
+                if (platformEndTimes[p] + _turnaround <= service.Arrival)
+                {
+                    service.Platform = p + 1;
+                    platformEndTimes[p] = service.Departure;
+                    assigned = true;
+                    break;
+                }
+            }
+
+            if (!assigned)
+            {
+                service.Platform = -1; // mark as conflict
+            }
+        }
+
+        return merged;
+    }
+}
+
+class Program
+{
+    static void Main()
+    {
+        var lineA = new List<Service>
+        {
+            new Service("A", TimeSpan.Parse("09:00"), TimeSpan.Parse("09:30")),
+            new Service("A", TimeSpan.Parse("10:00"), TimeSpan.Parse("10:20"))
+        };
+
+        var lineB = new List<Service>
+        {
+            new Service("B", TimeSpan.Parse("09:15"), TimeSpan.Parse("09:45")),
+            new Service("B", TimeSpan.Parse("10:05"), TimeSpan.Parse("10:25"))
+        };
+
+        var merger = new ScheduleMerger(platformCount: 2, turnaround: TimeSpan.FromMinutes(10));
+        var merged = merger.MergeAndAssign(lineA, lineB);
+
+        Console.WriteLine("Merged Schedule:");
+        foreach (var s in merged)
+        {
+            if (s.Platform == -1)
+                Console.WriteLine($"{s}  **CONFLICT: No available platform**");
+            else
+                Console.WriteLine(s);
+        }
+    }
+}
