@@ -1,0 +1,54 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+class Course
+{
+    public string Code, Name, TimeSlot;
+    public List<string> Prereqs;
+    public Course(string code, string name, string time, List<string> prereqs)
+    {
+        Code = code.ToUpper(); Name = name; TimeSlot = time; Prereqs = prereqs.Select(p => p.ToUpper()).ToList();
+    }
+    public bool CanEnroll(List<string> completed, out string reason)
+    {
+        var missing = Prereqs.Where(p => !completed.Contains(p)).ToList();
+        if (missing.Any()) { reason = "Missing prerequisites: " + string.Join(", ", missing); return false; }
+        reason = ""; return true;
+    }
+    public bool Conflicts(Course other) => TimeSlot == other.TimeSlot;
+}
+
+class Program
+{
+    static void Main()
+    {
+        var catalog = new List<Course>
+        {
+            new Course("CS101","Intro CS","Mon 9-11", new List<string>()),
+            new Course("CS102","Data Structures","Mon 9-11", new List<string>{"CS101"}),
+            new Course("CS103","Algorithms","Wed 9-11", new List<string>{"CS102"})
+        };
+
+        var completed = new List<string>{ "CS101" };
+        var requested = new List<string>{ "CS102", "CS103" }.Select(c => c.ToUpper()).ToList();
+
+        var approved = new List<Course>();
+        foreach (var code in requested)
+        {
+            var course = catalog.FirstOrDefault(c => c.Code == code);
+            if (course == null) { Console.WriteLine($"{code}: Not found"); continue; }
+
+            if (!course.CanEnroll(completed, out string reason))
+            { Console.WriteLine($"{course.Code} rejected: {reason}"); continue; }
+
+            if (approved.Any(a => a.Conflicts(course)))
+            { Console.WriteLine($"{course.Code} rejected: Time conflict"); continue; }
+
+            approved.Add(course);
+        }
+
+        Console.WriteLine("\nApproved courses:");
+        approved.ForEach(c => Console.WriteLine($"{c.Code} - {c.Name}"));
+    }
+}
