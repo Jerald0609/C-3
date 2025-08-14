@@ -1,0 +1,123 @@
+using System;
+using System.Collections.Generic;
+
+class Product
+{
+    public string Brand { get; }
+    public string Category { get; }
+    public string Color { get; }
+    public string Size { get; }
+    public int Year { get; }
+    public string CustomCode { get; }
+
+    public Product(string brand, string category, string color, string size, int year, string customCode = "")
+    {
+        Brand = brand.Trim();
+        Category = category.Trim();
+        Color = color.Trim();
+        Size = size.Trim();
+        Year = year;
+        CustomCode = customCode.Trim();
+    }
+
+    public string GenerateSku()
+    {
+        if (!string.IsNullOrEmpty(CustomCode))
+            return CustomCode.ToUpper();
+
+        string brandPart = Brand.Length >= 3 ? Brand.Substring(0, 3).ToUpper() : Brand.ToUpper();
+        string categoryPart = Category.Length >= 2 ? Category.Substring(0, 2).ToUpper() : Category.ToUpper();
+        string colorPart = Color.Length >= 2 ? Color.Substring(0, 2).ToUpper() : Color.ToUpper();
+        string yearPart = (Year % 100).ToString("D2");
+
+        return $"{brandPart}-{categoryPart}-{colorPart}-{Size.ToUpper()}-{yearPart}";
+    }
+}
+
+class Program
+{
+    static void Main()
+    {
+        // Allowed values for validation
+        var allowedCategories = new HashSet<string> { "Shoes", "Shirt", "Pants", "Hat" };
+        var allowedColors = new HashSet<string> { "Red", "Blue", "Green", "Black", "White" };
+
+        var usedSkus = new HashSet<string>();
+        var products = new List<Product>();
+
+        Console.Write("Enter number of products: ");
+        if (!int.TryParse(Console.ReadLine(), out int count) || count <= 0)
+        {
+            Console.WriteLine("Invalid number.");
+            return;
+        }
+
+        for (int i = 0; i < count; i++)
+        {
+            Console.WriteLine($"\n--- Product {i + 1} ---");
+
+            Console.Write("Brand: ");
+            string brand = Console.ReadLine();
+
+            string category;
+            while (true)
+            {
+                Console.Write("Category: ");
+                category = Console.ReadLine();
+                if (allowedCategories.Contains(category))
+                    break;
+                Console.WriteLine("Invalid category! Allowed: " + string.Join(", ", allowedCategories));
+            }
+
+            string color;
+            while (true)
+            {
+                Console.Write("Color: ");
+                color = Console.ReadLine();
+                if (allowedColors.Contains(color))
+                    break;
+                Console.WriteLine("Invalid color! Allowed: " + string.Join(", ", allowedColors));
+            }
+
+            Console.Write("Size: ");
+            string size = Console.ReadLine();
+
+            int year;
+            while (true)
+            {
+                Console.Write("Year: ");
+                if (int.TryParse(Console.ReadLine(), out year) && year > 1900 && year <= DateTime.Now.Year)
+                    break;
+                Console.WriteLine("Invalid year!");
+            }
+
+            Console.Write("Custom Code (optional): ");
+            string customCode = Console.ReadLine();
+
+            var product = new Product(brand, category, color, size, year, customCode);
+            string sku = product.GenerateSku();
+
+            if (usedSkus.Contains(sku))
+            {
+                int suffix = 1;
+                string newSku;
+                do
+                {
+                    newSku = $"{sku}-{suffix++}";
+                } while (usedSkus.Contains(newSku));
+                sku = newSku;
+            }
+
+            usedSkus.Add(sku);
+            products.Add(product);
+
+            Console.WriteLine($"Generated SKU: {sku}");
+        }
+
+        Console.WriteLine("\n--- All SKUs ---");
+        foreach (var p in products)
+        {
+            Console.WriteLine(p.GenerateSku());
+        }
+    }
+}
