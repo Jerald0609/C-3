@@ -1,0 +1,128 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+class Student
+{
+    public string Name { get; }
+    public string Zone { get; }
+
+    public Student(string name, string zone)
+    {
+        Name = name;
+        Zone = zone;
+    }
+
+    public override string ToString() => $"{Name} ({Zone})";
+}
+
+class Bus
+{
+    public string Id { get; }
+    public string Zone { get; }
+    public int Capacity { get; }
+    private List<Student> passengers = new List<Student>();
+
+    public Bus(string id, string zone, int capacity)
+    {
+        Id = id;
+        Zone = zone;
+        Capacity = capacity;
+    }
+
+    public bool TryAdd(Student s)
+    {
+        if (passengers.Count < Capacity)
+        {
+            passengers.Add(s);
+            return true;
+        }
+        return false;
+    }
+
+    public IEnumerable<Student> Passengers => passengers;
+
+    public override string ToString()
+    {
+        return $"Bus {Id} [{Zone}] - {passengers.Count}/{Capacity}";
+    }
+}
+
+class BusAssigner
+{
+    private readonly List<Bus> buses;
+    private readonly List<Student> students;
+
+    public BusAssigner(List<Bus> buses, List<Student> students)
+    {
+        this.buses = buses;
+        this.students = students;
+    }
+
+    public void Assign()
+    {
+        var unassigned = new List<Student>();
+
+        // Step 1: Greedy fill by zone
+        foreach (var student in students)
+        {
+            var preferredBus = buses.FirstOrDefault(b => b.Zone.Equals(student.Zone, StringComparison.OrdinalIgnoreCase) && b.TryAdd(student));
+            if (preferredBus == null)
+                unassigned.Add(student);
+        }
+
+        // Step 2: Spillover into any bus with space
+        var stillUnassigned = new List<Student>();
+        foreach (var student in unassigned)
+        {
+            var anyBus = buses.FirstOrDefault(b => b.TryAdd(student));
+            if (anyBus == null)
+                stillUnassigned.Add(student);
+        }
+
+        // Output
+        foreach (var bus in buses)
+        {
+            Console.WriteLine(bus);
+            foreach (var s in bus.Passengers)
+                Console.WriteLine($"  - {s}");
+        }
+
+        if (stillUnassigned.Any())
+        {
+            Console.WriteLine("\nUnassigned Students:");
+            foreach (var s in stillUnassigned)
+                Console.WriteLine($"  - {s}");
+        }
+        else
+        {
+            Console.WriteLine("\nAll students assigned.");
+        }
+    }
+}
+
+class Program
+{
+    static void Main()
+    {
+        var buses = new List<Bus>
+        {
+            new Bus("1", "North", 2),
+            new Bus("2", "South", 2),
+            new Bus("3", "East", 1)
+        };
+
+        var students = new List<Student>
+        {
+            new Student("Alice", "North"),
+            new Student("Bob", "North"),
+            new Student("Charlie", "South"),
+            new Student("Diana", "East"),
+            new Student("Ethan", "North"),
+            new Student("Fiona", "West")
+        };
+
+        var assigner = new BusAssigner(buses, students);
+        assigner.Assign();
+    }
+}
