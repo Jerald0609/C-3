@@ -1,0 +1,145 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.RegularExpressions;
+
+class ShortUrl
+{
+    private static readonly string Base62Chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+    private static readonly Random Rand = new Random();
+
+    public string OriginalUrl { get; }
+    public string Code { get; private set; }
+    public Dictionary<DateTime, int> Hits { get; } = new Dictionary<DateTime, int>();
+
+    public ShortUrl(string url, string customCode = null)
+    {
+        if (!Uri.IsWellFormedUriString(url, UriKind.Absolute))
+            throw new ArgumentException("Invalid URL format");
+
+        OriginalUrl = url;
+        Code = customCode ?? GenerateCode();
+    }
+
+    private string GenerateCode(int length = 6)
+    {
+        char[] chars = new char[length];
+        for (int i = 0; i < length; i++)
+            chars[i] = Base62Chars[Rand.Next(Base62Chars.Length)];
+        return new string(chars);
+    }
+
+    public void AssignUniqueCode(Func<string, bool> codeExists)
+    {
+        if (!string.IsNullOrEmpty(Code) && !codeExists(Code))
+            return;
+
+        do
+        {
+            Code = GenerateCode();
+        } while (codeExists(Code));
+    }
+
+    public void Visit()
+    {
+        DateTime today = DateTime.Today;
+        if (!Hits.ContainsKey(today))
+            Hits[today] = 0;
+        Hits[today]++;
+    }
+
+    public (int total, Dictionary<DateTime, int> daily) GetStats()
+    {
+        return (Hits.Values.Sum(), new Dictionary<DateTime, int>(Hits));
+    }
+}
+
+class Program
+{
+    static Dictionary<string, ShortUrl> store = new Dictionary<string, ShortUrl>();
+
+    static void Main()
+    {
+        while (true)
+        {
+            Console.WriteLine("\nMenu: 1) Add URL  2) Visit URL  3) Stats  4) Exit");
+            Console.Write("Choice: ");
+            string choice = Console.ReadLine();
+
+            switch (choice)
+            {
+                case "1":
+                    AddUrl();
+                    break;
+                case "2":
+                    VisitUrl();
+                    break;
+                case "3":
+                    ShowStats();
+                    break;
+                case "4":
+                    return;
+                default:
+                    Console.WriteLine("Invalid choice");
+                    break;
+            }
+        }
+    }
+
+    static void AddUrl()
+    {
+        Console.Write("Enter original URL: ");
+        string url = Console.ReadLine();
+
+        Console.Write("Enter custom code (optional): ");
+        string custom = Console.ReadLine();
+        if (string.IsNullOrWhiteSpace(custom)) custom = null;
+
+        try
+        {
+            var shortUrl = new ShortUrl(url, custom);
+            shortUrl.AssignUniqueCode(code => store.ContainsKey(code));
+            store[shortUrl.Code] = shortUrl;
+
+            Console.WriteLine($"Short code created: {shortUrl.Code}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error: {ex.Message}");
+        }
+    }
+
+    static void VisitUrl()
+    {
+        Console.Write("Enter short code: ");
+        string code = Console.ReadLine();
+        if (store.ContainsKey(code))
+        {
+            store[code].Visit();
+            Console.WriteLine($"Visited: {store[code].OriginalUrl}");
+        }
+        else
+        {
+            Console.WriteLine("Code not found.");
+        }
+    }
+
+    static void ShowStats()
+    {
+        Console.Write("Enter short code: ");
+        string code = Console.ReadLine();
+        if (store.ContainsKey(code))
+        {
+            var (total, daily) = store[code].GetStats();
+            Console.WriteLine($"Original URL: {store[code].OriginalUrl}");
+            Console.WriteLine($"Total visits: {total}");
+            Console.WriteLine("Daily breakdown:");
+            foreach (var kv in daily.OrderBy(k => k.Key))
+                Console.WriteLine($"{kv.Key:yyyy-MM-dd}: {kv.Value}");
+        }
+        else
+        {
+            Console.WriteLine("Code not found.");
+        }
+    }
+}
