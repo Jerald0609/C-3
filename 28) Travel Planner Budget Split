@@ -1,0 +1,112 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+class BudgetPlan
+{
+    public decimal TotalBudget { get; }
+    public Dictionary<string, decimal> Weights { get; }
+    public Dictionary<string, decimal> Minima { get; }
+    public Dictionary<string, decimal> Allocations { get; private set; }
+
+    public BudgetPlan(decimal totalBudget,
+                      Dictionary<string, decimal> weights,
+                      Dictionary<string, decimal> minima)
+    {
+        TotalBudget = totalBudget;
+        Weights = new Dictionary<string, decimal>(weights, StringComparer.OrdinalIgnoreCase);
+        Minima = new Dictionary<string, decimal>(minima, StringComparer.OrdinalIgnoreCase);
+
+        decimal totalMinima = Minima.Values.Sum();
+        if (totalMinima > TotalBudget)
+            throw new ArgumentException("Sum of minima exceeds total budget.");
+    }
+
+    public void Allocate()
+    {
+        decimal weightSum = Weights.Values.Sum();
+        if (weightSum <= 0)
+            throw new ArgumentException("Total of weights must be positive.");
+
+        // Initial proportional allocation
+        Allocations = Weights.ToDictionary(
+            kv => kv.Key,
+            kv => Math.Round((kv.Value / weightSum) * TotalBudget, 2),
+            StringComparer.OrdinalIgnoreCase
+        );
+
+        // Adjust to meet minima
+        foreach (var cat in Minima.Keys)
+        {
+            if (Allocations[cat] < Minima[cat])
+            {
+                decimal shortfall = Minima[cat] - Allocations[cat];
+                Allocations[cat] = Minima[cat];
+
+                // Remove shortfall proportionally from others
+                var adjustableCats = Allocations.Keys.Where(c => c != cat).ToList();
+                decimal adjustableSum = adjustableCats.Sum(c => Allocations[c]);
+
+                foreach (var c in adjustableCats)
+                {
+                    if (Allocations[c] > 0)
+                    {
+                        decimal reduction = Math.Round(shortfall * (Allocations[c] / adjustableSum), 2);
+                        Allocations[c] = Math.Max(0, Allocations[c] - reduction);
+                    }
+                }
+            }
+        }
+
+        // Fix rounding drift
+        decimal diff = TotalBudget - Allocations.Values.Sum();
+        if (diff != 0)
+        {
+            var largestCat = Allocations.OrderByDescending(kv => kv.Value).First().Key;
+            Allocations[largestCat] += diff;
+        }
+    }
+
+    public Dictionary<string, decimal> PerDay(int days)
+    {
+        if (days <= 0) throw new ArgumentException("Days must be positive.");
+        return Allocations.ToDictionary(
+            kv => kv.Key,
+            kv => Math.Round(kv.Value / days, 2),
+            StringComparer.OrdinalIgnoreCase
+        );
+    }
+}
+
+class Program
+{
+    static void Main()
+    {
+        decimal totalBudget = 1000m;
+        var weights = new Dictionary<string, decimal>
+        {
+            { "Stay", 4 },
+            { "Transport", 2 },
+            { "Food", 3 },
+            { "Misc", 1 }
+        };
+        var minima = new Dictionary<string, decimal>
+        {
+            { "Stay", 400 },
+            { "Transport", 100 },
+            { "Food", 150 },
+            { "Misc", 50 }
+        };
+
+        var plan = new BudgetPlan(totalBudget, weights, minima);
+        plan.Allocate();
+
+        Console.WriteLine("Allocation:");
+        foreach (var kv in plan.Allocations)
+            Console.WriteLine($"{kv.Key}: {kv.Value:C}");
+
+        Console.WriteLine("\nPer Day (5-day trip):");
+        foreach (var kv in plan.PerDay(5))
+            Console.WriteLine($"{kv.Key}: {kv.Value:C}");
+    }
+}
