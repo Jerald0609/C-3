@@ -1,0 +1,94 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+class Applicant
+{
+    public string Name { get; }
+    public double GPA { get; }
+    public double Income { get; }
+    public List<string> Extracurriculars { get; }
+    public int Awards { get; }
+
+    public Applicant(string name, double gpa, double income, List<string> extracurriculars, int awards)
+    {
+        Name = name;
+        GPA = gpa;
+        Income = income;
+        Extracurriculars = extracurriculars.Select(e => e.ToLower()).ToList();
+        Awards = awards;
+    }
+}
+
+class Scholarship
+{
+    public string Name { get; }
+    private readonly Func<Applicant, (bool eligible, List<string> reasons)> _rule;
+
+    public Scholarship(string name, Func<Applicant, (bool, List<string>)> rule)
+    {
+        Name = name;
+        _rule = rule;
+    }
+
+    public (bool eligible, List<string> reasons) Evaluate(Applicant a) => _rule(a);
+}
+
+class Program
+{
+    static void Main()
+    {
+        var scholarships = new List<Scholarship>
+        {
+            new Scholarship("Academic Excellence", a =>
+            {
+                var reasons = new List<string>();
+                if (a.GPA >= 3.8) reasons.Add("High GPA");
+                else reasons.Add("GPA below 3.8");
+                return (a.GPA >= 3.8, reasons);
+            }),
+            
+            new Scholarship("Community Leader", a =>
+            {
+                var reasons = new List<string>();
+                bool hasVolunteer = a.Extracurriculars.Contains("volunteering");
+                if (hasVolunteer) reasons.Add("Has volunteering");
+                else reasons.Add("No volunteering activity");
+
+                bool highAwards = a.Awards >= 2;
+                if (highAwards) reasons.Add("Has ≥ 2 awards");
+                else reasons.Add("Fewer than 2 awards");
+
+                bool eligible = hasVolunteer && highAwards;
+                return (eligible, reasons);
+            }),
+            
+            new Scholarship("Need-Based Grant", a =>
+            {
+                var reasons = new List<string>();
+                if (a.Income <= 25000) reasons.Add("Low income");
+                else reasons.Add("Income exceeds limit");
+
+                return (a.Income <= 25000, reasons);
+            }),
+        };
+
+        var applicants = new List<Applicant>
+        {
+            new Applicant("Alice", 3.9, 20000, new List<string>{"Volunteering", "Drama"}, 3),
+            new Applicant("Bob", 3.4, 40000, new List<string>{"Sports"}, 1),
+            new Applicant("Cara", 3.85, 15000, new List<string>{"Volunteering"}, 1)
+        };
+
+        foreach (var app in applicants)
+        {
+            Console.WriteLine($"\nApplicant: {app.Name}");
+            foreach (var sch in scholarships)
+            {
+                var (eligible, reasons) = sch.Evaluate(app);
+                Console.WriteLine($" - {sch.Name}: {(eligible ? "ELIGIBLE" : "NOT eligible")}");
+                Console.WriteLine($"   Reasons: {string.Join(", ", reasons)}");
+            }
+        }
+    }
+}
