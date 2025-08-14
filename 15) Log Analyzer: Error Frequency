@@ -1,0 +1,99 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+class LogEntry
+{
+    public string Severity { get; }
+    public string Code { get; }
+
+    public LogEntry(string line)
+    {
+        if (string.IsNullOrWhiteSpace(line))
+            return;
+
+        // Case-insensitive matching
+        var upper = line.ToUpperInvariant();
+
+        // Try to find "ERROR:" or "WARN:"
+        int idxError = upper.IndexOf("ERROR:");
+        int idxWarn = upper.IndexOf("WARN:");
+
+        if (idxError >= 0)
+        {
+            Severity = "ERROR";
+            Code = ExtractCode(line, idxError + "ERROR:".Length);
+        }
+        else if (idxWarn >= 0)
+        {
+            Severity = "WARN";
+            Code = ExtractCode(line, idxWarn + "WARN:".Length);
+        }
+    }
+
+    private string ExtractCode(string line, int startIndex)
+    {
+        // Trim spaces, get code up to space or end
+        var rest = line.Substring(startIndex).Trim();
+        var parts = rest.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length > 0 ? parts[0] : null;
+    }
+
+    public bool HasCode() => !string.IsNullOrEmpty(Code);
+}
+
+class Program
+{
+    static void Main()
+    {
+        Console.Write("Enter number of log lines: ");
+        if (!int.TryParse(Console.ReadLine(), out int N) || N <= 0)
+        {
+            Console.WriteLine("Invalid number.");
+            return;
+        }
+
+        var counts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        int totalWithCodes = 0;
+
+        Console.WriteLine("Enter log lines:");
+        for (int i = 0; i < N; i++)
+        {
+            var line = Console.ReadLine();
+            var entry = new LogEntry(line);
+
+            if (entry.HasCode())
+            {
+                totalWithCodes++;
+                if (!counts.ContainsKey(entry.Code))
+                    counts[entry.Code] = 0;
+                counts[entry.Code]++;
+            }
+        }
+
+        if (totalWithCodes == 0)
+        {
+            Console.WriteLine("No error/warning codes found.");
+            return;
+        }
+
+        Console.Write("Enter top K to display: ");
+        if (!int.TryParse(Console.ReadLine(), out int K) || K <= 0)
+        {
+            Console.WriteLine("Invalid K.");
+            return;
+        }
+
+        var sorted = counts
+            .OrderByDescending(kvp => kvp.Value)
+            .ThenBy(kvp => kvp.Key)
+            .Take(K);
+
+        Console.WriteLine("\n--- Top Codes ---");
+        foreach (var kvp in sorted)
+        {
+            double pct = (kvp.Value / (double)totalWithCodes) * 100;
+            Console.WriteLine($"{kvp.Key} - {kvp.Value} ({pct:F2}%)");
+        }
+    }
+}
