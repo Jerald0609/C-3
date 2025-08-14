@@ -1,0 +1,161 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+class SeatGrid
+{
+    private readonly int rows;
+    private readonly int cols;
+    private readonly List<string> students;
+    private readonly HashSet<(string, string)> friendPairs;
+    private readonly HashSet<(string, string)> flaggedPairs;
+    private readonly Random rng;
+
+    public string[,] Grid { get; private set; }
+
+    public SeatGrid(int rows, int cols, List<string> students,
+                    List<(string, string)> friends,
+                    List<(string, string)> flagged,
+                    int seed)
+    {
+        this.rows = rows;
+        this.cols = cols;
+        this.students = new List<string>(students);
+        this.friendPairs = NormalizePairs(friends);
+        this.flaggedPairs = NormalizePairs(flagged);
+        this.rng = new Random(seed);
+        this.Grid = new string[rows, cols];
+    }
+
+    private HashSet<(string, string)> NormalizePairs(List<(string, string)> pairs)
+    {
+        var set = new HashSet<(string, string)>();
+        foreach (var (a, b) in pairs)
+        {
+            set.Add((a, b));
+            set.Add((b, a));
+        }
+        return set;
+    }
+
+    public bool Generate(int maxRetries = 1000)
+    {
+        for (int attempt = 0; attempt < maxRetries; attempt++)
+        {
+            var shuffled = students.OrderBy(s => rng.Next()).ToList();
+            int idx = 0;
+            for (int r = 0; r < rows; r++)
+                for (int c = 0; c < cols; c++)
+                    Grid[r, c] = shuffled[idx++];
+
+            if (ValidateConstraints())
+                return true;
+        }
+        return false;
+    }
+
+    private bool ValidateConstraints()
+    {
+        int totalSeats = rows * cols;
+        if (students.Count > totalSeats) return false;
+
+        for (int r = 0; r < rows; r++)
+        {
+            for (int c = 0; c < cols; c++)
+            {
+                string student = Grid[r, c];
+                foreach (var (nr, nc) in GetAdjacent(r, c))
+                {
+                    string neighbor = Grid[nr, nc];
+                    if (flaggedPairs.Contains((student, neighbor)))
+                        return false; // cheating risk found
+                }
+            }
+        }
+        return true;
+    }
+
+    private IEnumerable<(int, int)> GetAdjacent(int r, int c)
+    {
+        int[] dr = { -1, 1, 0, 0 };
+        int[] dc = { 0, 0, -1, 1 };
+        for (int i = 0; i < 4; i++)
+        {
+            int nr = r + dr[i], nc = c + dc[i];
+            if (nr >= 0 && nr < rows && nc >= 0 && nc < cols)
+                yield return (nr, nc);
+        }
+    }
+
+    public void PrintGrid()
+    {
+        Console.WriteLine("\nSeating Map:");
+        for (int r = 0; r < rows; r++)
+        {
+            for (int c = 0; c < cols; c++)
+                Console.Write($"{Grid[r, c],-10}");
+            Console.WriteLine();
+        }
+    }
+
+    public void CheckViolations()
+    {
+        int violations = 0;
+        for (int r = 0; r < rows; r++)
+        {
+            for (int c = 0; c < cols; c++)
+            {
+                string student = Grid[r, c];
+                foreach (var (nr, nc) in GetAdjacent(r, c))
+                {
+                    string neighbor = Grid[nr, nc];
+                    if (flaggedPairs.Contains((student, neighbor)))
+                        violations++;
+                }
+            }
+        }
+        Console.WriteLine($"\nViolations: {violations / 2}"); // each counted twice
+    }
+}
+
+class Program
+{
+    static void Main()
+    {
+        var students = new List<string>
+        {
+            "Alice","Bob","Charlie","Dina","Eli","Fay","George","Hana"
+        };
+
+        var friends = new List<(string, string)>
+        {
+            ("Alice","Bob"),
+            ("Charlie","Dina")
+        };
+
+        var flagged = new List<(string, string)>
+        {
+            ("Eli","Fay"),
+            ("George","Hana")
+        };
+
+        Console.Write("Enter rows: ");
+        int rows = int.Parse(Console.ReadLine());
+        Console.Write("Enter cols: ");
+        int cols = int.Parse(Console.ReadLine());
+        Console.Write("Enter seed (int) for reproducibility: ");
+        int seed = int.Parse(Console.ReadLine());
+
+        var grid = new SeatGrid(rows, cols, students, friends, flagged, seed);
+
+        if (grid.Generate())
+        {
+            grid.PrintGrid();
+            grid.CheckViolations();
+        }
+        else
+        {
+            Console.WriteLine("Could not generate a valid seating plan within retries.");
+        }
+    }
+}
