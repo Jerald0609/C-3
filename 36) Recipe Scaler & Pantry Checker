@@ -1,0 +1,94 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+
+class Ingredient
+{
+    public string Name { get; }
+    public double Quantity { get; private set; }
+    public string Unit { get; }
+
+    private static readonly Dictionary<string, double> UnitToBaseFactor = new()
+    {
+        {"g", 1}, {"kg", 1000},
+        {"ml", 1}, {"l", 1000},
+        {"tsp", 5}, {"tbsp", 15}
+    };
+
+    public Ingredient(string name, double qty, string unit)
+    {
+        Name = name;
+        Quantity = qty;
+        Unit = unit.ToLower();
+        if (!UnitToBaseFactor.ContainsKey(Unit))
+            throw new ArgumentException($"Unknown unit: {unit}");
+    }
+
+    public void Scale(double factor)
+    {
+        Quantity *= factor;
+    }
+
+    public double ToBaseUnit()
+    {
+        return Quantity * UnitToBaseFactor[Unit];
+    }
+
+    public string BaseUnitName()
+    {
+        // g or ml chosen as base depending on type
+        return (Unit == "g" || Unit == "kg") ? "g" : "ml";
+    }
+
+    public override string ToString()
+    {
+        return $"{Quantity:0.##} {Unit} {Name}";
+    }
+}
+
+class Program
+{
+    static void Main()
+    {
+        int baseServings = 4;
+        int targetServings = 6;
+
+        var recipe = new List<Ingredient>
+        {
+            new Ingredient("Flour", 500, "g"),
+            new Ingredient("Milk", 1, "l"),
+            new Ingredient("Sugar", 200, "g")
+        };
+
+        var pantry = new Dictionary<string, Ingredient>
+        {
+            { "flour", new Ingredient("Flour", 1, "kg") },
+            { "milk", new Ingredient("Milk", 500, "ml") },
+            { "sugar", new Ingredient("Sugar", 100, "g") }
+        };
+
+        double scaleFactor = (double)targetServings / baseServings;
+
+        Console.WriteLine("Scaled Recipe:");
+        foreach (var ing in recipe)
+        {
+            ing.Scale(scaleFactor);
+            Console.WriteLine($" - {ing}");
+        }
+
+        Console.WriteLine("\nShopping List (Shortages):");
+        foreach (var ing in recipe)
+        {
+            var baseQty = ing.ToBaseUnit();
+            var available = pantry.ContainsKey(ing.Name.ToLower())
+                ? pantry[ing.Name.ToLower()].ToBaseUnit()
+                : 0;
+
+            if (available < baseQty)
+            {
+                double shortage = baseQty - available;
+                Console.WriteLine($" - {shortage:0.##} {ing.BaseUnitName()} {ing.Name}");
+            }
+        }
+    }
+}
