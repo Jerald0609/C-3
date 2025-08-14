@@ -1,0 +1,129 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+class Coupon
+{
+    public string Code { get; }
+    public string Type { get; } // "PERCENT", "FIXED", "SHIP"
+    public decimal Amount { get; } // For "SHIP", amount = shipping cost discount
+
+    public Coupon(string code)
+    {
+        Code = code.ToUpperInvariant();
+        if (Code.EndsWith("%")) // e.g. "15%"
+        {
+            Type = "PERCENT";
+            Amount = decimal.Parse(Code.TrimEnd('%'));
+        }
+        else if (Code.Contains("OFF")) // e.g. "10OFF"
+        {
+            Type = "FIXED";
+            Amount = decimal.Parse(Code.Replace("OFF", ""));
+        }
+        else if (Code == "FREESHIP")
+        {
+            Type = "SHIP";
+            Amount = 5; // Assume flat $5 shipping
+        }
+        else
+        {
+            throw new ArgumentException($"Invalid coupon format: {code}");
+        }
+    }
+
+    public decimal Apply(decimal subtotal, decimal shippingCost)
+    {
+        switch (Type)
+        {
+            case "PERCENT":
+                return subtotal * (Amount / 100m);
+            case "FIXED":
+                return Math.Min(Amount, subtotal);
+            case "SHIP":
+                return Math.Min(Amount, shippingCost);
+            default:
+                return 0;
+        }
+    }
+}
+
+class Program
+{
+    // Define mutual exclusions (e.g., percent and fixed can't stack)
+    static bool IsValidCombo(List<Coupon> coupons)
+    {
+        // Example: only one percent coupon allowed
+        if (coupons.Count(c => c.Type == "PERCENT") > 1) return false;
+        // Example: can't have both percent and fixed
+        if (coupons.Any(c => c.Type == "PERCENT") && coupons.Any(c => c.Type == "FIXED")) return false;
+        return true;
+    }
+
+    static void Main()
+    {
+        decimal cartTotal = 100m;
+        decimal shippingCost = 5m;
+
+        var couponStrings = new List<string> { "10OFF", "FREESHIP", "15%" };
+
+        var coupons = new List<Coupon>();
+        foreach (var code in couponStrings)
+        {
+            try { coupons.Add(new Coupon(code)); }
+            catch (Exception ex) { Console.WriteLine(ex.Message); }
+        }
+
+        decimal bestPayable = cartTotal + shippingCost;
+        List<Coupon> bestStack = null;
+
+        // Explore all subsets
+        int n = coupons.Count;
+        for (int mask = 0; mask < (1 << n); mask++)
+        {
+            var subset = new List<Coupon>();
+            for (int i = 0; i < n; i++)
+            {
+                if ((mask & (1 << i)) != 0)
+                    subset.Add(coupons[i]);
+            }
+
+            if (!IsValidCombo(subset)) continue;
+
+            decimal subtotal = cartTotal;
+            decimal ship = shippingCost;
+            decimal discount = 0;
+
+            // Apply percent first, then fixed, then ship
+            foreach (var c in subset.Where(c => c.Type == "PERCENT"))
+                discount += c.Apply(subtotal, ship);
+            subtotal -= discount;
+
+            foreach (var c in subset.Where(c => c.Type == "FIXED"))
+                subtotal -= c.Apply(subtotal, ship);
+
+            foreach (var c in subset.Where(c => c.Type == "SHIP"))
+                ship -= c.Apply(subtotal, ship);
+
+            subtotal = Math.Max(subtotal, 0);
+            ship = Math.Max(ship, 0);
+
+            decimal payable = subtotal + ship;
+
+            if (payable < bestPayable)
+            {
+                bestPayable = payable;
+                bestStack = subset.ToList();
+            }
+        }
+
+        // Output results
+        Console.WriteLine("\nBest Coupon Stack:");
+        if (bestStack != null && bestStack.Count > 0)
+            Console.WriteLine(string.Join(", ", bestStack.Select(c => c.Code)));
+        else
+            Console.WriteLine("No coupons applied.");
+
+        Console.WriteLine($"Final Payable: ${bestPayable:F2}");
+    }
+}
