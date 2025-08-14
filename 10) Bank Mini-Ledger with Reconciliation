@@ -1,0 +1,46 @@
+using System;
+using System.Collections.Generic;
+
+class Transaction
+{
+    public DateTime Date;
+    public string Type, Memo;
+    public decimal Amount;
+    public Transaction(string date, string type, string memo, decimal amount)
+    {
+        Date = DateTime.Parse(date);
+        Type = type.ToUpper();
+        Memo = memo;
+        Amount = amount;
+    }
+}
+
+class Program
+{
+    static void Main()
+    {
+        decimal balance = 1000m; // Opening balance
+        decimal suspiciousThreshold = 500m;
+        var txs = new List<Transaction>
+        {
+            new Transaction("2025-08-01","Deposit","Paycheck",800m),
+            new Transaction("2025-08-02","Withdrawal","Rent",600m),
+            new Transaction("2025-08-03","Withdrawal","Groceries",50m),
+        };
+
+        foreach (var t in txs)
+        {
+            if (t.Type == "WITHDRAWAL" && balance - t.Amount < 0)
+            { Console.WriteLine($"Overdraft prevented: {t.Memo}"); continue; }
+
+            balance += (t.Type == "DEPOSIT" ? t.Amount : -t.Amount);
+            if (t.Amount > suspiciousThreshold)
+                Console.WriteLine($"Suspicious: {t.Memo} ({t.Amount:C})");
+            Console.WriteLine($"{t.Date:yyyy-MM-dd} {t.Type} {t.Amount:C} -> Bal: {balance:C}");
+        }
+
+        decimal bankEndingBalance = 1150m;
+        decimal variance = bankEndingBalance - balance;
+        Console.WriteLine($"\nVariance with bank: {variance:C}");
+    }
+}
