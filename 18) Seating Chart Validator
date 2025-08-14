@@ -1,0 +1,145 @@
+using System;
+using System.Collections.Generic;
+
+class SeatingPlan
+{
+    private int rows, cols;
+    private string[,] grid;
+    private List<string> names;
+    private Dictionary<string, List<string>> mustSitWith;
+    private Dictionary<string, List<string>> mustSeparate;
+
+    public SeatingPlan(int rows, int cols, List<string> names,
+                       List<(string, string)> mustWith,
+                       List<(string, string)> mustApart)
+    {
+        this.rows = rows;
+        this.cols = cols;
+        this.names = names;
+        grid = new string[rows, cols];
+        mustSitWith = new Dictionary<string, List<string>>();
+        mustSeparate = new Dictionary<string, List<string>>();
+
+        foreach (var name in names)
+        {
+            mustSitWith[name] = new List<string>();
+            mustSeparate[name] = new List<string>();
+        }
+
+        foreach (var (a, b) in mustWith)
+        {
+            mustSitWith[a].Add(b);
+            mustSitWith[b].Add(a);
+        }
+
+        foreach (var (a, b) in mustApart)
+        {
+            mustSeparate[a].Add(b);
+            mustSeparate[b].Add(a);
+        }
+    }
+
+    public bool ArrangeSeats()
+    {
+        return Backtrack(0);
+    }
+
+    private bool Backtrack(int index)
+    {
+        if (index == names.Count) return true;
+
+        string person = names[index];
+        for (int r = 0; r < rows; r++)
+        {
+            for (int c = 0; c < cols; c++)
+            {
+                if (grid[r, c] == null)
+                {
+                    if (IsValid(r, c, person))
+                    {
+                        grid[r, c] = person;
+                        if (Backtrack(index + 1)) return true;
+                        grid[r, c] = null; // backtrack
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    private bool IsValid(int r, int c, string person)
+    {
+        // Check must-sit-with: At least one of their "with" friends already placed adjacent
+        foreach (var friend in mustSitWith[person])
+        {
+            if (IsPlaced(friend) && !IsAdjacent(r, c, friend))
+                return false;
+        }
+
+        // Check must-separate: None of their enemies adjacent
+        foreach (var enemy in mustSeparate[person])
+        {
+            if (IsAdjacent(r, c, enemy)) return false;
+        }
+
+        return true;
+    }
+
+    private bool IsPlaced(string name)
+    {
+        foreach (var seat in grid)
+            if (seat == name) return true;
+        return false;
+    }
+
+    private bool IsAdjacent(int r, int c, string name)
+    {
+        int[] dr = { -1, 1, 0, 0 };
+        int[] dc = { 0, 0, -1, 1 };
+
+        for (int i = 0; i < 4; i++)
+        {
+            int nr = r + dr[i];
+            int nc = c + dc[i];
+            if (nr >= 0 && nr < rows && nc >= 0 && nc < cols)
+            {
+                if (grid[nr, nc] == name) return true;
+            }
+        }
+        return false;
+    }
+
+    public void PrintGrid()
+    {
+        for (int r = 0; r < rows; r++)
+        {
+            for (int c = 0; c < cols; c++)
+            {
+                Console.Write($"{(grid[r, c] ?? "----"),-8}");
+            }
+            Console.WriteLine();
+        }
+    }
+}
+
+class Program
+{
+    static void Main()
+    {
+        var names = new List<string> { "Alice", "Bob", "Charlie", "Diana" };
+        var mustWith = new List<(string, string)> { ("Alice", "Bob") };
+        var mustApart = new List<(string, string)> { ("Charlie", "Diana") };
+
+        var seating = new SeatingPlan(2, 2, names, mustWith, mustApart);
+
+        if (seating.ArrangeSeats())
+        {
+            Console.WriteLine("Seating Plan Found:");
+            seating.PrintGrid();
+        }
+        else
+        {
+            Console.WriteLine("Impossible to satisfy all constraints.");
+        }
+    }
+}
