@@ -1,0 +1,88 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+
+class SensorStream
+{
+    private readonly List<float> readings;
+
+    public SensorStream(IEnumerable<string> rawReadings)
+    {
+        readings = new List<float>();
+        foreach (var s in rawReadings)
+        {
+            if (float.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out float val))
+                readings.Add(val);
+            else
+                throw new ArgumentException($"Invalid reading: '{s}'");
+        }
+    }
+
+    public List<float> MovingAverage(int windowSize)
+    {
+        if (windowSize <= 0)
+            throw new ArgumentException("Window size must be positive.");
+        if (windowSize > readings.Count)
+            throw new ArgumentException("Window size cannot exceed number of readings.");
+
+        var result = new List<float>();
+        float windowSum = 0;
+        Queue<float> window = new Queue<float>();
+
+        for (int i = 0; i < readings.Count; i++)
+        {
+            window.Enqueue(readings[i]);
+            windowSum += readings[i];
+
+            if (window.Count > windowSize)
+                windowSum -= window.Dequeue();
+
+            result.Add(windowSum / window.Count);
+        }
+        return result;
+    }
+
+    public List<int> DetectSpikes(List<float> smoothed, float threshold)
+    {
+        if (smoothed.Count != readings.Count)
+            throw new ArgumentException("Smoothed data must match reading count.");
+
+        var spikes = new List<int>();
+        for (int i = 0; i < readings.Count; i++)
+        {
+            if (Math.Abs(readings[i] - smoothed[i]) > threshold)
+                spikes.Add(i);
+        }
+        return spikes;
+    }
+}
+
+class Program
+{
+    static void Main()
+    {
+        // Example input
+        var rawData = new List<string> { "10", "10.5", "11", "50", "11.2", "10.8", "60", "11" };
+        int windowSize = 3;
+        float spikeThreshold = 15f;
+
+        try
+        {
+            var stream = new SensorStream(rawData);
+
+            var smoothed = stream.MovingAverage(windowSize);
+            Console.WriteLine("Smoothed readings:");
+            for (int i = 0; i < smoothed.Count; i++)
+                Console.WriteLine($"{i}: {smoothed[i]:F2}");
+
+            var spikes = stream.DetectSpikes(smoothed, spikeThreshold);
+            Console.WriteLine("\nSpike indices:");
+            Console.WriteLine(spikes.Count > 0 ? string.Join(", ", spikes) : "None");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error: {ex.Message}");
+        }
+    }
+}
