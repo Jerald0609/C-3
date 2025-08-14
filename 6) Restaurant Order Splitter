@@ -1,0 +1,83 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+class MenuItem
+{
+    public string Name;
+    public double Price;
+    public List<string> Assigned; // diner names
+    public MenuItem(string name, double price, List<string> assigned)
+    { Name = name; Price = price; Assigned = assigned; }
+}
+
+class Diner
+{
+    public string Name;
+    public List<MenuItem> Items = new();
+    public double TipPercent;
+    public Diner(string name, double tip) { Name = name; TipPercent = tip; }
+    public double Subtotal() => Items.Sum(i => i.Price / (i.Assigned.Count == 0 ? 1 : i.Assigned.Count));
+}
+
+class Program
+{
+    static double GetNonNeg(string msg)
+    {
+        double v;
+        while (true)
+        {
+            Console.Write(msg);
+            if (double.TryParse(Console.ReadLine(), out v) && v >= 0) return v;
+            Console.WriteLine("Invalid! Must be >= 0.");
+        }
+    }
+
+    static void Main()
+    {
+        Console.Write("Service charge %: ");
+        double servicePct = GetNonNeg("") / 100;
+
+        Console.Write("Number of diners: ");
+        int numDiners = int.Parse(Console.ReadLine());
+        var diners = new List<Diner>();
+        for (int i = 0; i < numDiners; i++)
+        {
+            Console.Write($"Diner {i + 1} name: ");
+            string name = Console.ReadLine();
+            double tip = GetNonNeg("Tip %: ") / 100;
+            diners.Add(new Diner(name, tip));
+        }
+
+        Console.Write("Number of items: ");
+        int numItems = int.Parse(Console.ReadLine());
+        var items = new List<MenuItem>();
+
+        for (int i = 0; i < numItems; i++)
+        {
+            Console.Write($"Item {i + 1} name: ");
+            string itemName = Console.ReadLine();
+            double price = GetNonNeg("Price: ");
+            Console.Write("Assigned diners (comma-separated names, blank for all): ");
+            var assignInput = Console.ReadLine();
+            var assigned = string.IsNullOrWhiteSpace(assignInput)
+                ? diners.Select(d => d.Name).ToList()
+                : assignInput.Split(',').Select(s => s.Trim()).ToList();
+            items.Add(new MenuItem(itemName, price, assigned));
+        }
+
+        // Allocate items
+        foreach (var d in diners)
+            d.Items.AddRange(items.Where(it => it.Assigned.Contains(d.Name)));
+
+        Console.WriteLine("\n=== BILL SPLIT ===");
+        foreach (var d in diners)
+        {
+            double sub = d.Subtotal();
+            double service = sub * servicePct;
+            double tip = sub * d.TipPercent;
+            double total = sub + service + tip;
+            Console.WriteLine($"{d.Name} | Subtotal: {sub:F2} | Service: {service:F2} | Tip: {tip:F2} | Total: {total:F2}");
+        }
+    }
+}
