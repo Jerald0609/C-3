@@ -1,0 +1,108 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+class Asset
+{
+    public string Currency { get; }
+    public decimal Amount { get; }
+
+    public Asset(string currency, decimal amount)
+    {
+        Currency = currency;
+        Amount = amount;
+    }
+}
+
+class FxRate
+{
+    public string Currency { get; }
+    public DateTime Date { get; }
+    public decimal Rate { get; } // rate: 1 foreign = X home currency
+
+    public FxRate(string currency, DateTime date, decimal rate)
+    {
+        Currency = currency;
+        Date = date;
+        Rate = rate;
+    }
+}
+
+class PortfolioValuator
+{
+    private List<Asset> assets;
+    private List<FxRate> fxRates;
+    private TimeSpan maxAge; // max allowed staleness
+
+    public PortfolioValuator(List<Asset> assets, List<FxRate> fxRates, TimeSpan maxAge)
+    {
+        this.assets = assets;
+        this.fxRates = fxRates;
+        this.maxAge = maxAge;
+    }
+
+    public void ValuePortfolio(DateTime valuationDate)
+    {
+        var results = new List<(Asset asset, decimal valueHome, bool stale)>();
+        decimal totalValue = 0;
+
+        foreach (var asset in assets)
+        {
+            var latestRate = fxRates
+                .Where(r => r.Currency == asset.Currency && r.Date <= valuationDate)
+                .OrderByDescending(r => r.Date)
+                .FirstOrDefault();
+
+            if (latestRate == null)
+            {
+                Console.WriteLine($"❌ No FX rate found for {asset.Currency} on or before {valuationDate:yyyy-MM-dd}.");
+                continue;
+            }
+
+            bool isStale = (valuationDate - latestRate.Date) > maxAge;
+            if (isStale)
+            {
+                Console.WriteLine($"⚠ Stale rate for {asset.Currency}: last {latestRate.Date:yyyy-MM-dd}");
+            }
+
+            decimal valueHome = asset.Amount * latestRate.Rate;
+            results.Add((asset, valueHome, isStale));
+            totalValue += valueHome;
+        }
+
+        // Sort by value descending
+        var sorted = results.OrderByDescending(r => r.valueHome).ToList();
+
+        Console.WriteLine("\nPortfolio Valuation:");
+        foreach (var item in sorted)
+        {
+            Console.WriteLine($"{item.asset.Currency} {item.asset.Amount:N2} → {item.valueHome:C} {(item.stale ? "(STALE)" : "")}");
+        }
+
+        Console.WriteLine($"\nTotal Portfolio Value: {totalValue:C}");
+    }
+}
+
+class Program
+{
+    static void Main()
+    {
+        var assets = new List<Asset>
+        {
+            new Asset("USD", 1000m),
+            new Asset("EUR", 500m),
+            new Asset("JPY", 100000m)
+        };
+
+        var fxRates = new List<FxRate>
+        {
+            new FxRate("USD", new DateTime(2025, 8, 13), 56.25m),
+            new FxRate("EUR", new DateTime(2025, 8, 10), 61.10m),
+            new FxRate("JPY", new DateTime(2025, 8, 1), 0.39m) // stale
+        };
+
+        var valuator = new PortfolioValuator(assets, fxRates, maxAge: TimeSpan.FromDays(7));
+
+        valuator.ValuePortfolio(new DateTime(2025, 8, 14));
+    }
+}
