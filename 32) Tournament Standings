@@ -1,0 +1,85 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+class Team
+{
+    public string Name { get; }
+    public int Points { get; private set; }
+    public int GoalsFor { get; private set; }
+    public int GoalsAgainst { get; private set; }
+
+    public int GoalDiff => GoalsFor - GoalsAgainst;
+
+    public Team(string name)
+    {
+        Name = name;
+        Points = 0;
+        GoalsFor = 0;
+        GoalsAgainst = 0;
+    }
+
+    public void RecordMatch(int goalsFor, int goalsAgainst)
+    {
+        GoalsFor += goalsFor;
+        GoalsAgainst += goalsAgainst;
+
+        if (goalsFor > goalsAgainst)
+            Points += 3;
+        else if (goalsFor == goalsAgainst)
+            Points += 1;
+        // loss → 0 points
+    }
+}
+
+class Program
+{
+    static void Main()
+    {
+        // Example data
+        var teamNames = new[] { "Lions", "Tigers", "Bears", "Wolves" };
+        var matchResults = new[]
+        {
+            "Lions 3 - 1 Tigers",
+            "Bears 2 - 2 Wolves",
+            "Lions 0 - 1 Wolves",
+            "Tigers 2 - 0 Bears",
+            "Lions 1 - 1 Bears"
+        };
+
+        // Initialize dictionary of teams
+        var teams = teamNames.ToDictionary(name => name, name => new Team(name), StringComparer.OrdinalIgnoreCase);
+
+        // Process matches
+        foreach (var line in matchResults)
+        {
+            var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length != 5 || parts[2] != "-")
+                continue; // malformed line
+
+            string homeName = parts[0];
+            string awayName = parts[3];
+
+            if (!teams.ContainsKey(homeName) || !teams.ContainsKey(awayName))
+                continue; // skip unknown team
+
+            if (!int.TryParse(parts[1], out int homeGoals) || !int.TryParse(parts[4], out int awayGoals))
+                continue; // invalid score
+
+            teams[homeName].RecordMatch(homeGoals, awayGoals);
+            teams[awayName].RecordMatch(awayGoals, homeGoals);
+        }
+
+        // Sort: points desc → goal diff desc → name asc
+        var sorted = teams.Values
+            .OrderByDescending(t => t.Points)
+            .ThenByDescending(t => t.GoalDiff)
+            .ThenBy(t => t.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        // Output standings
+        Console.WriteLine("Team\tPoints\tGD");
+        foreach (var t in sorted)
+            Console.WriteLine($"{t.Name}\t{t.Points}\t{t.GoalDiff}");
+    }
+}
