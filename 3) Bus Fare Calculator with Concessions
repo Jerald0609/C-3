@@ -1,0 +1,88 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+class FareRule
+{
+    public double BaseRate;
+    public double PeakMultiplier, OffPeakMultiplier;
+    public Dictionary<string, double> CategoryMult = new Dictionary<string, double>
+    {
+        { "ADULT", 1.0 }, { "STUDENT", 0.8 }, { "SENIOR", 0.7 }
+    };
+
+    public FareRule(double baseRate, double peak, double offPeak)
+    { BaseRate = baseRate; PeakMultiplier = peak; OffPeakMultiplier = offPeak; }
+
+    public double CalcFare(double km, string timeSlot, string category)
+    {
+        double timeMult = timeSlot.ToUpper() == "PEAK" ? PeakMultiplier : OffPeakMultiplier;
+        if (!CategoryMult.ContainsKey(category.ToUpper()))
+            throw new Exception("Unknown category.");
+        return km * BaseRate * timeMult * CategoryMult[category.ToUpper()];
+    }
+}
+
+class Program
+{
+    static double GetPositive(string msg)
+    {
+        double val;
+        while (true)
+        {
+            Console.Write(msg);
+            if (double.TryParse(Console.ReadLine(), out val) && val > 0) return val;
+            Console.WriteLine("Invalid! Must be > 0.");
+        }
+    }
+
+    static double BestCoupon(string codes)
+    {
+        var coupons = new Dictionary<string, double>
+        {
+            { "DISC10", 0.10 }, { "DISC20", 0.20 }, { "STUDENT5", 0.05 }
+        };
+        return codes.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(c => c.Trim().ToUpper())
+                    .Where(c => coupons.ContainsKey(c))
+                    .Select(c => coupons[c])
+                    .DefaultIfEmpty(0).Max();
+    }
+
+    static void Main()
+    {
+        var rule = new FareRule(10, 1.2, 1.0); // base rate 10 per km, peak 20% more
+        double km = GetPositive("Trip distance (km): ");
+
+        string timeSlot;
+        while (true)
+        {
+            Console.Write("Time slot (peak/off-peak): ");
+            timeSlot = Console.ReadLine();
+            if (timeSlot.Equals("peak", StringComparison.OrdinalIgnoreCase) ||
+                timeSlot.Equals("off-peak", StringComparison.OrdinalIgnoreCase)) break;
+            Console.WriteLine("Invalid time slot.");
+        }
+
+        string category;
+        while (true)
+        {
+            Console.Write("Passenger type (adult/student/senior): ");
+            category = Console.ReadLine();
+            if (new[] { "ADULT", "STUDENT", "SENIOR" }
+                .Contains(category.ToUpper())) break;
+            Console.WriteLine("Invalid category.");
+        }
+
+        Console.Write("Coupon codes (comma separated): ");
+        string codes = Console.ReadLine();
+
+        double fare = rule.CalcFare(km, timeSlot, category);
+        double discount = BestCoupon(codes);
+        double finalFare = fare * (1 - discount);
+
+        Console.WriteLine($"\nBase Fare: {fare:F2}");
+        Console.WriteLine($"Best Discount: {discount * 100}%");
+        Console.WriteLine($"Final Fare: {finalFare:F2}");
+    }
+}
