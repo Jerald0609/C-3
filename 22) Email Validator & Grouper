@@ -1,0 +1,67 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.RegularExpressions;
+
+class Email
+{
+    public string Address { get; }
+    public string NamePart { get; }
+    public string DomainPart { get; }
+    public bool IsValid { get; }
+
+    private static readonly Regex EmailRegex = new Regex(
+        @"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$",
+        RegexOptions.Compiled
+    );
+
+    public Email(string email)
+    {
+        Address = email.Trim().ToLower();
+        IsValid = EmailRegex.IsMatch(Address);
+
+        if (IsValid)
+        {
+            var parts = Address.Split('@');
+            NamePart = parts[0];
+            DomainPart = parts[1];
+        }
+    }
+}
+
+class Program
+{
+    static void Main()
+    {
+        string input = "Alice@example.com, bob@work.org, invalid-email, charlie@Example.com, dan@test.org, eve@work.org";
+
+        var emails = input.Split(',')
+                          .Select(e => new Email(e))
+                          .ToList();
+
+        var invalidEmails = emails.Where(e => !e.IsValid)
+                                  .Select(e => e.Address)
+                                  .ToList();
+
+        var validGroups = emails.Where(e => e.IsValid)
+                                .GroupBy(e => e.DomainPart)
+                                .OrderBy(g => g.Key)
+                                .ToDictionary(g => g.Key, g => g.Select(e => e.Address).OrderBy(a => a).ToList());
+
+        Console.WriteLine("Invalid Emails:");
+        if (invalidEmails.Any())
+            Console.WriteLine("  " + string.Join(", ", invalidEmails));
+        else
+            Console.WriteLine("  None");
+
+        Console.WriteLine("\nEmail Groups by Domain:");
+        foreach (var kvp in validGroups)
+        {
+            Console.WriteLine($"{kvp.Key}:");
+            foreach (var addr in kvp.Value)
+            {
+                Console.WriteLine($"  {addr}");
+            }
+        }
+    }
+}
