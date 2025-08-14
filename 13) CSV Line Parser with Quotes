@@ -1,0 +1,98 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Text;
+
+class CsvRecord
+{
+    public string Line { get; }
+    public char Delimiter { get; }
+
+    public CsvRecord(string line, char delimiter)
+    {
+        Line = line;
+        Delimiter = delimiter;
+    }
+
+    public List<object> Parse()
+    {
+        var fields = new List<object>();
+        var currentField = new StringBuilder();
+        bool inQuotes = false;
+
+        for (int i = 0; i < Line.Length; i++)
+        {
+            char c = Line[i];
+
+            if (c == '"')
+            {
+                // If already in quotes, check for escaped quote ("")
+                if (inQuotes && i + 1 < Line.Length && Line[i + 1] == '"')
+                {
+                    currentField.Append('"');
+                    i++; // Skip the next quote
+                }
+                else
+                {
+                    // Toggle quote mode
+                    inQuotes = !inQuotes;
+                }
+            }
+            else if (c == Delimiter && !inQuotes)
+            {
+                // End of field
+                fields.Add(ConvertIfNumeric(currentField.ToString()));
+                currentField.Clear();
+            }
+            else
+            {
+                currentField.Append(c);
+            }
+        }
+
+        // Add the last field
+        fields.Add(ConvertIfNumeric(currentField.ToString()));
+
+        return fields;
+    }
+
+    private object ConvertIfNumeric(string value)
+    {
+        string trimmed = value.Trim();
+
+        // Try integer
+        if (int.TryParse(trimmed, out int intVal))
+            return intVal;
+
+        // Try double with culture-invariant parsing
+        if (double.TryParse(trimmed, NumberStyles.Any, CultureInfo.InvariantCulture, out double doubleVal))
+            return doubleVal;
+
+        // Otherwise return string
+        return trimmed;
+    }
+}
+
+class Program
+{
+    static void Main()
+    {
+        Console.Write("Enter CSV line: ");
+        string line = Console.ReadLine();
+
+        Console.Write("Enter delimiter (default comma): ");
+        string delimInput = Console.ReadLine();
+        char delimiter = string.IsNullOrEmpty(delimInput) ? ',' : delimInput[0];
+
+        var record = new CsvRecord(line, delimiter);
+        var fields = record.Parse();
+
+        Console.WriteLine("\n--- Parsed Fields ---");
+        foreach (var field in fields)
+        {
+            Console.WriteLine($"{field} (Type: {field.GetType().Name})");
+        }
+
+        Console.WriteLine($"\nTotal fields: {fields.Count}");
+    }
+}
