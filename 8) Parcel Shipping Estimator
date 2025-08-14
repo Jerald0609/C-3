@@ -1,0 +1,60 @@
+using System;
+
+class Parcel
+{
+    public double L, W, H, Weight;
+    public string Zone, Speed;
+    const double DimFactor = 5000; // cm³/kg
+    const double MaxSize = 150;    // cm (any dimension)
+    const double BaseRate = 50;    // per kg
+
+    public Parcel(double l, double w, double h, double weight, string zone, string speed)
+    { L = l; W = w; H = h; Weight = weight; Zone = zone; Speed = speed; }
+
+    public double DimWeight() => (L * W * H) / DimFactor;
+    public double BillableWeight() => Math.Max(Weight, DimWeight());
+
+    public double Cost()
+    {
+        double zoneMult = Zone.ToUpper() switch
+        {
+            "A" => 1.0, "B" => 1.2, "C" => 1.5, _ => throw new Exception("Invalid zone")
+        };
+        double speedMult = Speed.ToUpper() switch
+        {
+            "STANDARD" => 1.0, "EXPRESS" => 1.5, _ => throw new Exception("Invalid speed")
+        };
+        return BillableWeight() * BaseRate * zoneMult * speedMult;
+    }
+}
+
+class Program
+{
+    static double GetPos(string msg)
+    {
+        double v;
+        while (true)
+        {
+            Console.Write(msg);
+            if (double.TryParse(Console.ReadLine(), out v) && v > 0) return v;
+            Console.WriteLine("Invalid! Must be > 0.");
+        }
+    }
+
+    static void Main()
+    {
+        double l = GetPos("Length (cm): ");
+        double w = GetPos("Width (cm): ");
+        double h = GetPos("Height (cm): ");
+        if (l > 150 || w > 150 || h > 150) { Console.WriteLine("Oversize package."); return; }
+
+        double wt = GetPos("Weight (kg): ");
+        Console.Write("Zone code (A/B/C): "); string zone = Console.ReadLine();
+        Console.Write("Speed (standard/express): "); string speed = Console.ReadLine();
+
+        var p = new Parcel(l, w, h, wt, zone, speed);
+        Console.WriteLine($"Dimensional Weight: {p.DimWeight():F2} kg");
+        Console.WriteLine($"Billable Weight: {p.BillableWeight():F2} kg");
+        Console.WriteLine($"Shipping Cost: {p.Cost():C}");
+    }
+}
