@@ -1,0 +1,120 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using System.Text.RegularExpressions;
+
+class Money
+{
+    public string CurrencyCode { get; }
+    public decimal Value { get; }
+
+    private static readonly Dictionary<string, string> SymbolToCode = new()
+    {
+        { "$", "USD" },
+        { "PHP", "PHP" },
+        { "€", "EUR" }
+        // Add more mappings as needed
+    };
+
+    public Money(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+            throw new ArgumentException("Empty input");
+
+        input = input.Trim();
+        string detectedCurrency = null;
+
+        // Detect currency symbol or code
+        foreach (var kv in SymbolToCode)
+        {
+            if (input.StartsWith(kv.Key, StringComparison.OrdinalIgnoreCase))
+            {
+                detectedCurrency = kv.Value;
+                input = input.Substring(kv.Key.Length).Trim();
+                break;
+            }
+            else if (input.EndsWith(kv.Key, StringComparison.OrdinalIgnoreCase))
+            {
+                detectedCurrency = kv.Value;
+                input = input.Substring(0, input.Length - kv.Key.Length).Trim();
+                break;
+            }
+        }
+
+        // Default currency if none detected
+        if (detectedCurrency == null)
+            detectedCurrency = "USD"; // Or throw if mandatory
+
+        // Detect separator usage
+        bool hasComma = input.Contains(',');
+        bool hasDot = input.Contains('.');
+
+        // Ambiguity check
+        if (hasComma && hasDot)
+            throw new FormatException($"Ambiguous format: '{input}'");
+
+        // Normalize decimal separator to '.'
+        if (hasComma && !hasDot)
+        {
+            // Assume comma is decimal if it appears only once near end
+            int commaIndex = input.LastIndexOf(',');
+            if (commaIndex >= input.Length - 3)
+                input = input.Replace(",", ".");
+            else
+                input = input.Replace(",", ""); // thousands separator
+        }
+        else if (hasDot && !hasComma)
+        {
+            // Remove thousands separator if > 3 chars before decimal
+            int dotIndex = input.LastIndexOf('.');
+            if (dotIndex < input.Length - 3)
+                input = input.Replace(".", "");
+        }
+
+        if (!decimal.TryParse(input, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out decimal val))
+            throw new FormatException($"Invalid number format: '{input}'");
+
+        CurrencyCode = detectedCurrency;
+        Value = val;
+    }
+
+    public override string ToString()
+    {
+        return $"{CurrencyCode} {Value:F2}";
+    }
+}
+
+class Program
+{
+    static void Main()
+    {
+        var inputs = new List<string>
+        {
+            "$1,299.50",
+            "1299,50",
+            "PHP 1299.5",
+            "€ 2.000,75"
+        };
+
+        var parsed = new List<Money>();
+
+        foreach (var s in inputs)
+        {
+            try
+            {
+                parsed.Add(new Money(s));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Rejected '{s}': {ex.Message}");
+            }
+        }
+
+        var sorted = parsed.OrderBy(m => m.Value).ToList();
+
+        Console.WriteLine("\nNormalized and sorted:");
+        foreach (var m in sorted)
+            Console.WriteLine(m);
+    }
+}
