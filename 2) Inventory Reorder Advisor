@@ -1,0 +1,70 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+class Item
+{
+    public string Code, Name;
+    public double Price;
+    public int Stock, MinStock;
+    public int[] Sales7;
+    const int LeadTime = 3; // days
+
+    public Item(string code, string name, double price, int stock, int minStock, int[] sales)
+    { Code = code; Name = name; Price = price; Stock = stock; MinStock = minStock; Sales7 = sales; }
+
+    double AvgDailySales() => Sales7.Average();
+    public double UrgencyScore() => AvgDailySales() * LeadTime - Stock;
+    public bool NeedsReorder() => UrgencyScore() > 0;
+}
+
+class Program
+{
+    static double GetPosDouble(string msg)
+    {
+        double val;
+        while (true)
+        {
+            Console.Write(msg);
+            if (double.TryParse(Console.ReadLine(), out val) && val >= 0) return val;
+            Console.WriteLine("Invalid input. Must be positive.");
+        }
+    }
+    static int GetPosInt(string msg)
+    {
+        int val;
+        while (true)
+        {
+            Console.Write(msg);
+            if (int.TryParse(Console.ReadLine(), out val) && val >= 0) return val;
+            Console.WriteLine("Invalid input. Must be positive integer.");
+        }
+    }
+
+    static void Main()
+    {
+        Console.Write("Number of items: ");
+        int count = int.Parse(Console.ReadLine());
+        var items = new List<Item>();
+
+        for (int i = 0; i < count; i++)
+        {
+            Console.WriteLine($"\nItem {i + 1}:");
+            Console.Write("Code: "); string code = Console.ReadLine();
+            Console.Write("Name: "); string name = Console.ReadLine();
+            double price = GetPosDouble("Unit price: ");
+            int stock = GetPosInt("Current stock: ");
+            int minStock = GetPosInt("Min stock: ");
+            int[] sales7 = new int[7];
+            for (int d = 0; d < 7; d++) sales7[d] = GetPosInt($"Sales Day {d + 1}: ");
+            items.Add(new Item(code, name, price, stock, minStock, sales7));
+        }
+
+        var reorderList = items.Where(it => it.NeedsReorder())
+                               .OrderByDescending(it => it.UrgencyScore());
+
+        Console.WriteLine("\n=== REORDER LIST ===");
+        foreach (var it in reorderList)
+            Console.WriteLine($"{it.Code} {it.Name} | Stock: {it.Stock} | AvgDaily: {it.Sales7.Average():F1} | Urgency: {it.UrgencyScore():F1}");
+    }
+}
