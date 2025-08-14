@@ -1,0 +1,117 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+class Box
+{
+    public int Id { get; }
+    public double Capacity { get; }
+    public double CurrentWeight { get; private set; }
+    public List<double> Items { get; }
+
+    public Box(int id, double capacity)
+    {
+        Id = id;
+        Capacity = capacity;
+        CurrentWeight = 0;
+        Items = new List<double>();
+    }
+
+    public bool TryAdd(double weight)
+    {
+        if (CurrentWeight + weight <= Capacity)
+        {
+            Items.Add(weight);
+            CurrentWeight += weight;
+            return true;
+        }
+        return false;
+    }
+
+    public double FillRatio => CurrentWeight / Capacity;
+}
+
+class Packer
+{
+    public static List<Box> Pack(List<double> items, double capacity, string strategy)
+    {
+        var boxes = new List<Box>();
+        int boxCounter = 1;
+
+        foreach (var item in items)
+        {
+            bool placed = false;
+
+            switch (strategy.ToLower())
+            {
+                case "firstfit":
+                    foreach (var box in boxes)
+                    {
+                        if (box.TryAdd(item))
+                        {
+                            placed = true;
+                            break;
+                        }
+                    }
+                    break;
+
+                case "bestfit":
+                    Box bestBox = null;
+                    double minSpaceLeft = double.MaxValue;
+                    foreach (var box in boxes)
+                    {
+                        double spaceLeft = box.Capacity - box.CurrentWeight;
+                        if (spaceLeft >= item && spaceLeft - item < minSpaceLeft)
+                        {
+                            bestBox = box;
+                            minSpaceLeft = spaceLeft - item;
+                        }
+                    }
+                    if (bestBox != null)
+                    {
+                        bestBox.TryAdd(item);
+                        placed = true;
+                    }
+                    break;
+
+                default:
+                    throw new ArgumentException("Unknown strategy. Use 'firstfit' or 'bestfit'.");
+            }
+
+            if (!placed)
+            {
+                var newBox = new Box(boxCounter++, capacity);
+                newBox.TryAdd(item);
+                boxes.Add(newBox);
+            }
+        }
+
+        return boxes;
+    }
+}
+
+class Program
+{
+    static void Main()
+    {
+        var items = new List<double> { 4.2, 2.5, 5.0, 1.3, 3.7, 2.8, 4.9 };
+        double boxCapacity = 10.0;
+        string strategy = "bestfit"; // change to "firstfit" for other method
+
+        var boxes = Packer.Pack(items, boxCapacity, strategy);
+
+        Console.WriteLine($"Packing Strategy: {strategy}\n");
+        double totalWeight = 0;
+
+        foreach (var box in boxes)
+        {
+            totalWeight += box.CurrentWeight;
+            Console.WriteLine($"Box {box.Id}: {string.Join(", ", box.Items)} | " +
+                              $"Total: {box.CurrentWeight:F1} / {box.Capacity} " +
+                              $"({box.FillRatio:P0})");
+        }
+
+        Console.WriteLine($"\nTotal Boxes Used: {boxes.Count}");
+        Console.WriteLine($"Total Weight Packed: {totalWeight:F1} (should equal sum of items: {items.Sum():F1})");
+    }
+}
