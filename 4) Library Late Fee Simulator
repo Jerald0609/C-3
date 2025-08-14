@@ -1,0 +1,62 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+
+class LibraryItem
+{
+    public string Type;
+    public DateTime Due, Returned;
+    const int AmnestyDays = 2;
+    static Dictionary<string, double> Rates = new() { { "BOOK", 1.0 }, { "DVD", 2.0 }, { "MAG", 0.5 } };
+
+    public LibraryItem(string type, DateTime due, DateTime ret)
+    { Type = type; Due = due; Returned = ret; }
+
+    public int LateDays() => Math.Max(0, (Returned - Due).Days - AmnestyDays);
+    public double Fee() => Rates.ContainsKey(Type) ? LateDays() * Rates[Type] : 0;
+}
+
+class Program
+{
+    static DateTime GetDate(string msg)
+    {
+        while (true)
+        {
+            Console.Write(msg);
+            if (DateTime.TryParseExact(Console.ReadLine(), "MM/dd/yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime d))
+                return d;
+            Console.WriteLine("Invalid date. Use MM/dd/yyyy.");
+        }
+    }
+
+    static void Main()
+    {
+        const double FeeCap = 50.0;
+        Console.Write("Number of borrowed items: ");
+        int n = int.Parse(Console.ReadLine());
+        var items = new List<LibraryItem>();
+
+        for (int i = 0; i < n; i++)
+        {
+            Console.Write($"Type (book/DVD/mag) for item {i + 1}: ");
+            string type = Console.ReadLine().ToUpper();
+            var due = GetDate("Due date (MM/dd/yyyy): ");
+            var ret = GetDate("Return date (MM/dd/yyyy): ");
+            items.Add(new LibraryItem(type, due, ret));
+        }
+
+        double total = 0;
+        foreach (var it in items)
+        {
+            double fee = it.Fee();
+            total += fee;
+            Console.WriteLine($"{it.Type} | Late: {it.LateDays()} days | Fee: {fee:C}");
+        }
+
+        total = Math.Min(total, FeeCap);
+        var offender = items.OrderByDescending(i => i.Fee()).First();
+        Console.WriteLine($"\nTotal Fees (capped at {FeeCap:C}): {total:C}");
+        Console.WriteLine($"Highest offender: {offender.Type} | Fee: {offender.Fee():C}");
+    }
+}
