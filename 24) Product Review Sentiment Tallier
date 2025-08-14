@@ -1,0 +1,100 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.RegularExpressions;
+
+class FileName
+{
+    public string BaseName { get; }
+    public int Version { get; }
+    public string FullName => Version > 0 ? $"{BaseName}(v{Version})" : BaseName;
+
+    // Regex to capture base name and optional version suffix
+    private static readonly Regex Pattern = new Regex(@"^(.*?)(?:\(v(\d+)\))?$", RegexOptions.IgnoreCase);
+
+    public FileName(string name)
+    {
+        var match = Pattern.Match(name.Trim());
+        if (!match.Success)
+            throw new ArgumentException($"Invalid file name: {name}");
+
+        BaseName = match.Groups[1].Value;
+        Version = match.Groups[2].Success ? int.Parse(match.Groups[2].Value) : 0;
+    }
+}
+
+class FileNameManager
+{
+    private HashSet<string> existing;
+    private Dictionary<string, int> highestVersion;
+
+    public FileNameManager(IEnumerable<string> initialNames)
+    {
+        existing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        highestVersion = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var name in initialNames)
+            AddExisting(name);
+    }
+
+    private void AddExisting(string name)
+    {
+        var fn = new FileName(name);
+        existing.Add(fn.FullName);
+
+        if (!highestVersion.ContainsKey(fn.BaseName))
+            highestVersion[fn.BaseName] = fn.Version;
+        else
+            highestVersion[fn.BaseName] = Math.Max(highestVersion[fn.BaseName], fn.Version);
+    }
+
+    public string AssignUnique(string incoming)
+    {
+        var fn = new FileName(incoming);
+
+        if (!existing.Contains(fn.FullName))
+        {
+            AddExisting(fn.FullName);
+            return fn.FullName;
+        }
+
+        // Increment version until a free name is found
+        if (!highestVersion.ContainsKey(fn.BaseName))
+            highestVersion[fn.BaseName] = 0;
+
+        int newVersion = highestVersion[fn.BaseName] + 1;
+        string candidate;
+        do
+        {
+            candidate = $"{fn.BaseName}(v{newVersion})";
+            newVersion++;
+        }
+        while (existing.Contains(candidate));
+
+        AddExisting(candidate);
+        return candidate;
+    }
+}
+
+class Program
+{
+    static void Main()
+    {
+        var original = new List<string>
+        {
+            "Report", "Report(v1)", "Summary", "data", "Data(v2)"
+        };
+
+        var incoming = new List<string>
+        {
+            "Report", "Summary", "Data", "NewFile", "report"
+        };
+
+        var manager = new FileNameManager(original);
+        var finalList = incoming.Select(name => manager.AssignUnique(name)).ToList();
+
+        Console.WriteLine("Final Unique Names:");
+        foreach (var name in finalList)
+            Console.WriteLine(name);
+    }
+}
