@@ -1,0 +1,44 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.RegularExpressions;
+
+class Account
+{
+    public string Username;
+    public Account(string name)
+    {
+        Username = name.Trim().ToLower().Replace(" ", "-");
+    }
+    public static bool IsStrongPassword(string pass, List<string> common)
+    {
+        return pass.Length >= 8 &&
+               Regex.IsMatch(pass, @"[A-Z]") &&
+               Regex.IsMatch(pass, @"[a-z]") &&
+               Regex.IsMatch(pass, @"\d") &&
+               !common.Any(c => pass.ToLower().Contains(c));
+    }
+}
+
+class Program
+{
+    static void Main()
+    {
+        var commonWords = new List<string> { "password", "1234", "qwerty" };
+        var existing = new HashSet<string>();
+        var users = new List<(string, string)> {
+            ("Alice Smith","StrongP@ss1"), ("Bob Jones","password99")
+        };
+
+        foreach (var (name, pass) in users)
+        {
+            var acc = new Account(name);
+            string uname = acc.Username;
+            int suffix = 1;
+            while (existing.Contains(uname)) uname = acc.Username + suffix++;
+            if (!Account.IsStrongPassword(pass, commonWords))
+                Console.WriteLine($"Weak password for {uname}");
+            else { existing.Add(uname); Console.WriteLine($"Created: {uname}"); }
+        }
+    }
+}
