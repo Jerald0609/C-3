@@ -1,0 +1,92 @@
+using System;
+using System.Collections.Generic;
+
+class ParkingSession
+{
+    public DateTime Entry { get; }
+    public DateTime Exit { get; }
+
+    public ParkingSession(string entryTime, string exitTime)
+    {
+        Entry = DateTime.Parse(entryTime);
+        Exit = DateTime.Parse(exitTime);
+
+        if (Exit <= Entry)
+            throw new ArgumentException("Exit time must be after entry time.");
+    }
+
+    public int GetRoundedHours()
+    {
+        double totalHours = (Exit - Entry).TotalHours;
+        return (int)Math.Ceiling(totalHours); // round up any partial hour
+    }
+
+    public decimal CalculateHourly(decimal hourlyRate)
+    {
+        return GetRoundedHours() * hourlyRate;
+    }
+
+    public decimal CalculateFlat(decimal flatRate)
+    {
+        return flatRate;
+    }
+
+    public decimal CalculateProgressive(decimal firstNHoursRate, int firstN, decimal extraRate)
+    {
+        int hours = GetRoundedHours();
+        if (hours <= firstN)
+            return firstNHoursRate;
+        else
+            return firstNHoursRate + (hours - firstN) * extraRate;
+    }
+
+    public (string Plan, decimal Cost) GetBestPlan(decimal hourlyRate, decimal flatRate,
+                                                  decimal firstNHoursRate, int firstN, decimal extraRate)
+    {
+        var plans = new Dictionary<string, decimal>
+        {
+            { "Hourly", CalculateHourly(hourlyRate) },
+            { "Flat", CalculateFlat(flatRate) },
+            { "Progressive", CalculateProgressive(firstNHoursRate, firstN, extraRate) }
+        };
+
+        decimal minCost = decimal.MaxValue;
+        string bestPlan = "";
+        foreach (var kvp in plans)
+        {
+            if (kvp.Value < minCost)
+            {
+                minCost = kvp.Value;
+                bestPlan = kvp.Key;
+            }
+        }
+        return (bestPlan, minCost);
+    }
+}
+
+class Program
+{
+    static void Main()
+    {
+        // Example fee schedules
+        decimal hourlyRate = 50m;
+        decimal flatRate = 300m;
+        decimal firstNHoursRate = 120m; // progressive: first N hours
+        int firstN = 3;
+        decimal extraRate = 40m; // progressive: after first N hours
+
+        var sessions = new List<ParkingSession>
+        {
+            new ParkingSession("2025-08-14 08:30", "2025-08-14 10:15"),
+            new ParkingSession("2025-08-14 09:00", "2025-08-14 17:45"),
+            new ParkingSession("2025-08-14 11:10", "2025-08-14 11:40")
+        };
+
+        foreach (var session in sessions)
+        {
+            var best = session.GetBestPlan(hourlyRate, flatRate, firstNHoursRate, firstN, extraRate);
+            Console.WriteLine($"{session.Entry:t} → {session.Exit:t} ({session.GetRoundedHours()} hrs) → " +
+                              $"{best.Plan} Plan @ {best.Cost:C}");
+        }
+    }
+}
